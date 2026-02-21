@@ -5,10 +5,14 @@ const router = require("express").Router();
 
 router.post('/create', adminControllar.createAdmin);
 router.post('/login', adminControllar.loginAdmin);
+// router.post("/verify-otp", adminControllar.verifyOtp);
+router.post("/send-otp", adminControllar.sendOtp);
+router.post("/verify-otp", adminControllar.verifyOtpAndResetPassword);
 router.get('/', adminControllar.getAdmin);
 router.get('/dashboard', adminControllar.dashboard);
 router.get('/single-admin/:id', adminControllar.getSingleAdmin);
 // GET /api/admin/users - Get all users with pagination and filtering
+
 router.get("/users", adminControllar.getAllUsers)
 
 // GET /api/admin/users/stats - Get user statistics

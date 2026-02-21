@@ -1,5 +1,10 @@
 const Users = require("../models/user.model");
+const Admins = require('../models/admin.model');
 const { createAdminIntoDB, adminLoginServices, updateAdminIntoDB, deleteSingleAdminByIdIntoDB, getSingleAdminByIdIntoDB, getAdminIntoDB, dashboardOverview } = require("../services/admin.service");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 
 
@@ -21,22 +26,160 @@ exports.createAdmin = async (req, res) => {
   }
 };
 
+// exports.loginAdmin = async (req, res) => {
+//   try {
+//     console.log("Mail service call hochche...");
+//     const data = await adminLoginServices(req.body);
+//     if (!data.status) {
+//       return res.json(data);
+//     }
+//     console.log("Mail service finish hoyeche:", data);
+    
+//     res.json(data);
+//   } catch (error) {
+//     res.json({
+//       status: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 exports.loginAdmin = async (req, res) => {
   try {
     const payload = req.body;
     const data = await adminLoginServices(payload);
     res.json({
       status: true,
-      message: 'Admin login successfully',
+      message: "Admin login successfully",
       data,
     });
   } catch (error) {
     res.json({
       status: false,
-      message: 'Admin is not login successfully',
+      message: "Admin is not login successfully",
       error: error.message,
     });
   }
+};
+
+
+
+
+// exports.verifyOtp = async (req, res) => {
+//   const { email, otp } = req.body;
+
+//   const user = await Admins.findOne({ email });
+//   if (!user) return res.json({ status: false, message: "Admin not found." });
+
+//   const inputOtp = otp.toString().trim();
+//   const storedOtp = user.otp ? user.otp.toString().trim() : "";
+
+//   if (storedOtp !== inputOtp) {
+//     return res.json({ status: false, message: "Invalid OTP." });
+//   }
+
+//   if (user.otpExpires < Date.now()) {
+//     return res.json({ status: false, message: "OTP expired." });
+//   }
+
+//   // Generate JWT
+//   const token = jwt.sign(
+//     { id: user._id, role: user.type, email: user.email },
+//     process.env.SECRET_TOKEN,
+//     { expiresIn: "10d" },
+//   );
+
+//   // Clear OTP
+//   user.otp = undefined;
+//   user.otpExpires = undefined;
+//   await user.save();
+
+//   res.json({
+//     status: true,
+//     message: "Login successful",
+//     token,
+//   });
+// };
+
+exports.sendOtp = async (req, res) => {
+  const { email, newPassword } = req.body;
+
+  // 1️⃣ Find admin
+  const admin = await Admins.findOne({ email });
+  if (!admin)
+    return res.status(404).json({ status: false, message: "Admin not found." });
+
+  // 2️⃣ Generate OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // 3️⃣ Save OTP & expiry to admin document
+  admin.otp = otp;
+  admin.otpExpires = Date.now() + 5 * 60 * 1000; // 5 minutes
+  admin.password = newPassword; // temporarily store hashed later on OTP verification
+  await admin.save();
+
+  // 4️⃣ Configure nodemailer
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_APP_PASSWORD,
+    },
+  });
+
+  // 5️⃣ Send OTP
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USERNAME,
+      to: admin.email,
+      subject: "Your OTP for Password Reset",
+      text: `Your OTP is ${otp}. It will expire in 5 minutes.`,
+    });
+
+    res.json({ status: true, message: "OTP sent to your email." });
+  } catch (error) {
+    console.error("Email error:", error);
+    res.status(500).json({ status: false, message: "Failed to send OTP." });
+  }
+};
+
+exports.verifyOtpAndResetPassword = async (req, res) => {
+  const { email, otp } = req.body;
+
+  const admin = await Admins.findOne({ email });
+  if (!admin)
+    return res.status(404).json({ status: false, message: "Admin not found." });
+
+  // 1️⃣ Check OTP
+  if (!admin.otp || admin.otp !== otp) {
+    return res.status(400).json({ status: false, message: "Invalid OTP." });
+  }
+
+  // 2️⃣ Check expiry
+  if (admin.otpExpires < Date.now()) {
+    return res.status(400).json({ status: false, message: "OTP expired." });
+  }
+
+  // 3️⃣ Hash the new password
+  const salt = await bcrypt.genSalt(10);
+  admin.password = await bcrypt.hash(admin.password, salt);
+
+  // 4️⃣ Clear OTP
+  admin.otp = undefined;
+  admin.otpExpires = undefined;
+
+  await admin.save();
+
+  // 5️⃣ Optional: generate JWT if you want to auto-login
+  const token = jwt.sign(
+    { id: admin._id, role: admin.type, email: admin.email },
+    process.env.SECRET_TOKEN,
+    { expiresIn: "10d" },
+  );
+
+  res.json({ status: true, message: "Password reset successful.", token });
 };
 
 exports.updateAdmin = async (req, res) => {
