@@ -1,167 +1,170 @@
-const router = require("express").Router();
+// const router = require("express").Router();
 
-const {
-  createUser,
-  loginUser,
-  changePassword,
-  updateUser,
-  deleteUser,
-  getSingleUser,
-  getUser,
-  addInterested,
-  addFavorite,
-  getMyLists,
-  removeFavorite,
-  trackProfileView,
-  searchUsers,
-  getUserWithInterests,
-  removeInterest,
-  getUsers,
-  getUrgentBiyeDateUsers,
-  updateGallery,
-  updateProfilePhotoPrivacy,
-  updateGalleryPrivacy,
-  removeUserDocument,
-  requestVerification,
-} = require("../controllers/user.controller");
+// const {
+//   createUser,
+//   loginUser,
+//   changePassword,
+//   updateUser,
+//   deleteUser,
+//   getSingleUser,
+//   getUser,
+//   addInterested,
+//   addFavorite,
+//   getMyLists,
+//   removeFavorite,
+//   trackProfileView,
+//   searchUsers,
+//   getUserWithInterests,
+//   removeInterest,
+//   getUsers,
+//   getUrgentBiyeDateUsers,
+//   updateGallery,
+//   updateProfilePhotoPrivacy,
+//   updateGalleryPrivacy,
+//   removeUserDocument,
+//   requestVerification,
+// } = require("../controllers/user.controller");
 
-const nodemailer = require("nodemailer");
-const Users = require("../models/user.model"); // তোমার ইউজার মডেল
-const bcrypt = require("bcryptjs");
+// const nodemailer = require("nodemailer");
+// const Users = require("../models/user.model"); // তোমার ইউজার মডেল
+// const bcrypt = require("bcryptjs");
 
-// OTP স্টোর করার জন্য একটা ইন-মেমোরি স্টোর (production এ Redis বা DB use করো)
-const otpStore = {};
+// // OTP স্টোর করার জন্য একটা ইন-মেমোরি স্টোর (production এ Redis বা DB use করো)
+// const otpStore = {};
 
-// Nodemailer সেটআপ
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USERNAME, // তোমার Gmail
-    pass: process.env.EMAIL_APP_PASSWORD, // Gmail app password
-  },
-});
+// // Nodemailer সেটআপ
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.EMAIL_USERNAME, // তোমার Gmail
+//     pass: process.env.EMAIL_APP_PASSWORD, // Gmail app password
+//   },
+// });
 
+// // Create and Login
+// router.post('/create', createUser); // POST /users
+// router.post('/login', loginUser); // POST /users/login
 
-// Create and Login
-router.post('/create', createUser); // POST /users
-router.post('/login', loginUser); // POST /users/login
+// // Password change
+// router.post('/change-password/:id', changePassword);
 
-// Password change
-router.post('/change-password/:id', changePassword);
+// // 1) OTP পাঠানোর API
+// router.post("/forgot-password", async (req, res) => {
+//   const { email } = req.body;
+//   if (!email) return res.status(400).json({ message: "Email is required" });
 
+//   const user = await Users.findOne({ email });
+//   if (!user) return res.status(404).json({ message: "User not found" });
 
-// 1) OTP পাঠানোর API
-router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ message: "Email is required" });
+//   // 6 ডিজিটের OTP জেনারেট
+//   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const user = await Users.findOne({ email });
-  if (!user) return res.status(404).json({ message: "User not found" });
+//   // OTP স্টোর (expiry 5 মিনিট)
+//   otpStore[email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
-  // 6 ডিজিটের OTP জেনারেট
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+//   // OTP ইমেইল পাঠাও
+//   const mailOptions = {
+//     from: process.env.EMAIL_USERNAME,
+//     to: email,
+//     subject: "ScamBD Password Reset - Your One Time OTP Code",
 
-  // OTP স্টোর (expiry 5 মিনিট)
-  otpStore[email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
+// text: `Hello,
 
-  // OTP ইমেইল পাঠাও
-  const mailOptions = {
-    from: process.env.EMAIL_USERNAME,
-    to: email,
-    subject: "ScamBD Password Reset - Your One Time OTP Code",
+// We received a request to reset your password on ScamBD.
 
-text: `Hello,
+// Your One-Time Password (OTP) is: ${otp}
 
-We received a request to reset your password on ScamBD.
+// This OTP will expire in 5 minutes. Please do not share it with anyone.
 
-Your One-Time Password (OTP) is: ${otp}
+// If you did not request this, please ignore this email or contact us.
 
-This OTP will expire in 5 minutes. Please do not share it with anyone.
+// Visit: https://scambd.com
 
-If you did not request this, please ignore this email or contact us.
+// - ScamBD Team
+// `,
+//   };
 
-Visit: https://scambd.com
+//   try {
+//     await transporter.sendMail(mailOptions);
+//     res.json({ message: "OTP sent to email" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Error sending OTP" });
+//   }
+// });
 
-- ScamBD Team
-`,
-  };
+// // 2) OTP ভেরিফাই এবং পাসওয়ার্ড রিসেট API
+// router.post("/reset-password", async (req, res) => {
+//   const { email, otp, newPassword, confirmPassword } = req.body;
 
-  try {
-    await transporter.sendMail(mailOptions);
-    res.json({ message: "OTP sent to email" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error sending OTP" });
-  }
-});
+//   if (!email || !otp || !newPassword || !confirmPassword)
+//     return res.status(400).json({ message: "All fields are required" });
 
-// 2) OTP ভেরিফাই এবং পাসওয়ার্ড রিসেট API
-router.post("/reset-password", async (req, res) => {
-  const { email, otp, newPassword, confirmPassword } = req.body;
+//   if (newPassword !== confirmPassword)
+//     return res.status(400).json({ message: "Passwords do not match" });
 
-  if (!email || !otp || !newPassword || !confirmPassword)
-    return res.status(400).json({ message: "All fields are required" });
+//   const storedOTP = otpStore[email];
+//   if (!storedOTP)
+//     return res.status(400).json({ message: "OTP not found or expired" });
 
-  if (newPassword !== confirmPassword)
-    return res.status(400).json({ message: "Passwords do not match" });
+//   if (storedOTP.otp !== otp)
+//     return res.status(400).json({ message: "Invalid OTP" });
 
-  const storedOTP = otpStore[email];
-  if (!storedOTP)
-    return res.status(400).json({ message: "OTP not found or expired" });
+//   if (storedOTP.expires < Date.now())
+//     return res.status(400).json({ message: "OTP expired" });
 
-  if (storedOTP.otp !== otp)
-    return res.status(400).json({ message: "Invalid OTP" });
+//   // ইউজার পাসওয়ার্ড আপডেট করো (হ্যাশ বাদ দিয়ে সরাসরি)
+//   await Users.updateOne({ email }, { password: newPassword });
 
-  if (storedOTP.expires < Date.now())
-    return res.status(400).json({ message: "OTP expired" });
+//   // OTP মুছে ফেলো
+//   delete otpStore[email];
 
-  // ইউজার পাসওয়ার্ড আপডেট করো (হ্যাশ বাদ দিয়ে সরাসরি)
-  await Users.updateOne({ email }, { password: newPassword });
+//   res.json({ message: "Password reset successful" });
+// });
 
-  // OTP মুছে ফেলো
-  delete otpStore[email];
+// // Read
+// router.get('/', getUser); // GET /users
+// router.get('/all', getUsers); // GET /users
+// router.get('/urgent', getUrgentBiyeDateUsers); // GET /users urgent
+// router.get('/:id', getSingleUser); // GET /users/:id
+// router.post("/interested", addInterested);
+// // :profileId হলো যেই প্রোফাইল দেখানো হচ্ছে
+// router.post("/:profileId/view", trackProfileView);
+// // Search users
+// router.post("/search", searchUsers)
+// router.post("/favorite", addFavorite);
+// router.get("/:userId/interests", getUserWithInterests);
+// router.get("/:userId/lists", getMyLists);
+// // Update
+// router.patch('/:id', updateUser); // PATCH /users/:id
+// router.put('/:id', updateUser);   // Optional if full update supported
 
-  res.json({ message: "Password reset successful" });
-});
+// // Update gallery
+// router.patch("/:id/gallery", updateGallery); // PATCH /users/:id/gallery
 
+// router.patch("/:id/profilephoto-privacy", updateProfilePhotoPrivacy);
 
+// // router.patch("/:id/gallery-privacy", updateGalleryPrivacy);
 
-// Read
-router.get('/', getUser); // GET /users
-router.get('/all', getUsers); // GET /users
-router.get('/urgent', getUrgentBiyeDateUsers); // GET /users urgent
-router.get('/:id', getSingleUser); // GET /users/:id
-router.post("/interested", addInterested);
-// :profileId হলো যেই প্রোফাইল দেখানো হচ্ছে
-router.post("/:profileId/view", trackProfileView);
-// Search users
-router.post("/search", searchUsers)
-router.post("/favorite", addFavorite);
-router.get("/:userId/interests", getUserWithInterests);
-router.get("/:userId/lists", getMyLists); 
-// Update
-router.patch('/:id', updateUser); // PATCH /users/:id
-router.put('/:id', updateUser);   // Optional if full update supported
+// // Delete uploaded document
+// router.patch("/remove-document/:id", removeUserDocument);
 
+// //user verification pending
+// router.patch("/verification-request/:id", requestVerification);
 
-// Update gallery
-router.patch("/:id/gallery", updateGallery); // PATCH /users/:id/gallery
+// // Delete
+// router.delete("/:targetUserId/interest",  removeInterest);
+// router.delete('/:id', deleteUser); // DELETE /users/:id
+// // ❌ ফেভারিট থেকে রিমুভ
+// router.delete("/:userId/favorite/:targetId", removeFavorite);
+// module.exports = router;
 
-router.patch("/:id/profilephoto-privacy", updateProfilePhotoPrivacy);
+const express = require("express");
+const { registerUser, loginUser } = require("../controllers/user.controller");
 
-// router.patch("/:id/gallery-privacy", updateGalleryPrivacy);
+const router = express.Router();
 
-// Delete uploaded document
-router.patch("/remove-document/:id", removeUserDocument);
+router.post("/register", registerUser);
+router.post("/login", loginUser);
 
-//user verification pending
-router.patch("/verification-request/:id", requestVerification);
-
-
-
-// Delete
-router.delete("/:targetUserId/interest",  removeInterest);
-router.delete('/:id', deleteUser); // DELETE /users/:id
-// ❌ ফেভারিট থেকে রিমুভ
-router.delete("/:userId/favorite/:targetId", removeFavorite);
 module.exports = router;

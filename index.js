@@ -69,6 +69,7 @@ const http = require("http");
 const multer = require("multer");
 const express = require("express");
 const app = require("./app/app");
+// const User = require("./models/user1.model");
 require("./db/dbConnect");
 
 const server = http.createServer(app);
@@ -123,4 +124,17 @@ io.on("connection", (socket) => {
 });
 
 const port = process.env.PORT || 3000;
+
+// app.get("/clean-db", async (req, res) => {
+//   try {
+//     const result = await User.deleteMany({});
+//     res.status(200).send(`
+//       <h1>Database Cleaned!</h1>
+//       <p>Deleted ${result.deletedCount} users.</p>
+//       <p>এখন Postman দিয়ে প্রথম (Seed) ইউজার তৈরি করুন।</p>
+//     `);
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 server.listen(port, () => console.log(`🚀 Server running on port ${port}`));

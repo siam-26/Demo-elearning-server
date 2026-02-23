@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 // Routes
 app.use("/api/v1/admin", require("../routes/admin.route"));
 app.use("/api/v1/admin/course", require("../routes/course.route"));
-// app.use("/api/v1/user", require("../routes/user.route"));
+app.use("/api/v1/user", require("../routes/user.route"));
 // app.use("/api/v1/messages", require("../routes/message.route"));
 // app.use("/api/v1/tickets", require("../routes/ticket.route"));
 // app.use("/api/v1/subscription", require("../routes/subscription.route"));
